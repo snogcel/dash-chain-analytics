@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/snogcel/dash-chain-analytics/issues"
   },
-  "homepage": "https://github.com/snogcel/dash-chain-analytics#readme"
+  "homepage": "https://github.com/snogcel/dash-chain-analytics#readme",
+  "dependencies": {
+    "commander": "^2.14.1"
+  }
 }
