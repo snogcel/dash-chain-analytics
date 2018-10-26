@@ -17,10 +17,10 @@
   },
   "homepage": "https://github.com/snogcel/dash-chain-analytics#readme",
   "dependencies": {
-    "async": "^2.6.0",
+    "async": "^2.6.1",
     "await": "^0.2.6",
-    "commander": "^2.14.1",
+    "commander": "^2.19.0",
     "csv-database": "^0.9.2",
-    "request": "^2.83.0"
+    "request": "^2.88.0"
   }
 }
