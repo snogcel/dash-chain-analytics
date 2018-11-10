@@ -46,39 +46,6 @@ function DataLogic() {
     let status = {};
 
     // Public Interfaces
-    this.parseBlockData = function(data) {
-
-        if (typeof data.err !== 'undefined' && data.err) {
-            return this.setStatus('block', {
-                lastSuccess: false,
-                res: data.err,
-                time: Math.floor(Date.now() / 1000)
-            });
-        }
-
-        if (typeof data.res !== 'undefined' && data.res) {
-            // Push to Block Stack
-            blockStack.push(data.res);
-
-            console.log(blockStack);
-
-            // Return status
-            return this.setStatus('block', {
-                lastSuccess: true,
-                res: data.res,
-                time: Math.floor(Date.now() / 1000)
-            });
-
-        } else {
-
-            // TODO - Error Handling
-
-            // Invalid Data
-            throw new Error(data);
-
-        }
-    };
-
     this.initStatus = function(dataObject) {
 
         // TODO - pull from config and finalize against spec
@@ -107,9 +74,7 @@ function DataLogic() {
     };
 
     this.setStatus = function(name, data) {
-        // TODO - validate data?
         status[name] = data;
-
         return status[name];
     };
 
@@ -117,36 +82,9 @@ function DataLogic() {
         return status[name]
     };
 
-    this.parseTxData = function(data) {
-        
-        if (typeof data.err !== 'undefined' && data.err) {
-            return this.setStatus('tx', {
-                lastSuccess: false,
-                res: data.err,
-                time: Math.floor(Date.now() / 1000)
-            });
-        }
 
-        if (typeof data.res !== 'undefined' && data.res) {
-            // Push to TX Stack
-            txStack.push(data.res);
 
-            // Return status
-            return this.setStatus('tx', {
-                lastSuccess: true,
-                res: data.res,
-                time: Math.floor(Date.now() / 1000)
-            });
 
-        } else {
-
-            // TODO - Error Handling
-
-            // Invalid Data
-            throw new Error(data);
-
-        }
-    };
 
     this.getTxStackLength = function() {
         return txStack.length;
@@ -164,10 +102,41 @@ function DataLogic() {
         return blockStack.shift();
     };
 
+
+
     this.locked = false;
 
     this.initStatus(null);
 }
+
+DataLogic.prototype.parseTxData = function(data) {
+
+    if (typeof data.err !== 'undefined' && data.err) {
+        return this.setStatus('tx', {
+            lastSuccess: false,
+            res: data.err,
+            time: Math.floor(Date.now() / 1000)
+        });
+    }
+
+    if (typeof data.res !== 'undefined' && data.res) {
+        // Push to TX Stack
+        // txStack.push(data.res);
+
+        // Return status
+        return this.setStatus('tx', {
+            lastSuccess: true,
+            res: data.res,
+            time: Math.floor(Date.now() / 1000)
+        });
+
+    } else {
+
+        // TODO - Error Handling
+        throw new Error(data);
+
+    }
+};
 
 DataLogic.prototype.txEventHandler = function(data) {
 
@@ -195,6 +164,35 @@ DataLogic.prototype.txEventHandler = function(data) {
 
     }
 
+};
+
+DataLogic.prototype.parseBlockData = function(data) {
+
+    if (typeof data.err !== 'undefined' && data.err) {
+        return this.setStatus('block', {
+            lastSuccess: false,
+            res: data.err,
+            time: Math.floor(Date.now() / 1000)
+        });
+    }
+
+    if (typeof data.res !== 'undefined' && data.res) {
+        // Push to Block Stack
+        // blockStack.push(data.res);
+
+        // Return status
+        return this.setStatus('block', {
+            lastSuccess: true,
+            res: data.res,
+            time: Math.floor(Date.now() / 1000)
+        });
+
+    } else {
+
+        // TODO - Error Handling
+        throw new Error(data);
+
+    }
 };
 
 DataLogic.prototype.blockEventHandler = function(data) {
