@@ -19,6 +19,24 @@ const BLOCK_QUEUE_LIMIT = 1;
 const HEARTBEAT_INTERVAL = 5;
 const HEARTBEAT_REQUEST_DELAY = 10;
 
+const configData = {
+    platforms: [{
+        name: "block",
+        statusFields: {
+            lastSuccess: true,
+            res: null,
+            time: 0
+        }
+    }, {
+        name: "tx",
+        statusFields: {
+            lastSuccess: true,
+            res: null,
+            time: 0
+        }
+    }]
+};
+
 function DataLogic() {
     const self = this;
 
@@ -38,39 +56,14 @@ function DataLogic() {
        this.eventEmitter.emit('heartbeat', HEARTBEAT_REQUEST_DELAY);
     }, HEARTBEAT_INTERVAL*1000);
 
-    // Data Interfaces
-    let blockStack = [];
-    let txStack = [];
-
-    // Data Interface Status
+    // Status Interface
     let status = {};
 
     // Public Interfaces
-    this.initStatus = function(dataObject) {
-
-        // TODO - pull from config and finalize against spec
-        var configData = {
-            platforms: [{
-                name: "block",
-                statusFields: {
-                    lastSuccess: true,
-                    res: null,
-                    time: 0
-                }
-            }, {
-                name: "tx",
-                statusFields: {
-                    lastSuccess: true,
-                    res: null,
-                    time: 0
-                }
-            }]
-        };
-
-        for (let i = 0; i < configData.platforms.length; i++) {
-            status[configData.platforms[i].name] = configData.platforms[i].statusFields;
+    this.initStatus = function(platforms) {
+        for (let i = 0; i < platforms.length; i++) {
+            status[platforms[i].name] = platforms[i].statusFields;
         }
-
     };
 
     this.setStatus = function(name, data) {
@@ -82,57 +75,35 @@ function DataLogic() {
         return status[name]
     };
 
-
-
-
-
-    this.getTxStackLength = function() {
-        return txStack.length;
-    };
-
-    this.shiftTxStack = function() {
-        return txStack.shift();
-    };
-
-    this.getBlockStackLength = function() {
-        return blockStack.length;
-    };
-
-    this.shiftBlockStack = function() {
-        return blockStack.shift();
-    };
-
-
+    // TODO - Fetch Config
+    this.initStatus(configData.platforms);
 
     this.locked = false;
-
-    this.initStatus(null);
 }
 
 DataLogic.prototype.parseTxData = function(data) {
 
+    // Soft Error Handler
     if (typeof data.err !== 'undefined' && data.err) {
         return this.setStatus('tx', {
-            lastSuccess: false,
+            valid: false,
             res: data.err,
             time: Math.floor(Date.now() / 1000)
         });
     }
 
     if (typeof data.res !== 'undefined' && data.res) {
-        // Push to TX Stack
-        // txStack.push(data.res);
 
         // Return status
         return this.setStatus('tx', {
-            lastSuccess: true,
+            valid: true,
             res: data.res,
             time: Math.floor(Date.now() / 1000)
         });
 
     } else {
 
-        // TODO - Error Handling
+        // Hard Error Handler
         throw new Error(data);
 
     }
@@ -140,27 +111,16 @@ DataLogic.prototype.parseTxData = function(data) {
 
 DataLogic.prototype.txEventHandler = function(data) {
 
-    const status = this.parseTxData(data);
+    const result = this.parseTxData(data);
 
-    if (status.lastSuccess) {
-        console.log('> Request Succeeded (writing queue: ' + this.getTxStackLength() + ')');
+    if (result.valid) {
+        console.log('> TX Request Succeeded at', result.time);
 
-        if (this.getTxStackLength() > TX_QUEUE_LIMIT) {
-            let stack = [];
-
-            for (var i = 0; i < TX_QUEUE_LIMIT; i++) {
-                stack.push(this.shiftTxStack());
-            }
-
-            // TODO - Write to Database
-
-            // console.log(stack);
-
-        }
+        // TODO - write to DB
 
     } else {
         console.log("> Request Failed at:", Math.floor(Date.now() / 1000));
-
+        throw new Error(result.err);
 
     }
 
@@ -168,28 +128,27 @@ DataLogic.prototype.txEventHandler = function(data) {
 
 DataLogic.prototype.parseBlockData = function(data) {
 
+    // Soft Error Handler
     if (typeof data.err !== 'undefined' && data.err) {
         return this.setStatus('block', {
-            lastSuccess: false,
+            valid: false,
             res: data.err,
             time: Math.floor(Date.now() / 1000)
         });
     }
 
     if (typeof data.res !== 'undefined' && data.res) {
-        // Push to Block Stack
-        // blockStack.push(data.res);
 
         // Return status
         return this.setStatus('block', {
-            lastSuccess: true,
+            valid: true,
             res: data.res,
             time: Math.floor(Date.now() / 1000)
         });
 
     } else {
 
-        // TODO - Error Handling
+        // Hard Error Handler
         throw new Error(data);
 
     }
@@ -197,28 +156,16 @@ DataLogic.prototype.parseBlockData = function(data) {
 
 DataLogic.prototype.blockEventHandler = function(data) {
 
-    const status = this.parseBlockData(data);
+    const result = this.parseBlockData(data);
 
-    if (status.lastSuccess) {
-        console.log('> Request Succeeded (writing queue: ' + this.getBlockStackLength() + ')');
+    if (result.valid) {
+        console.log('> Block Request Succeeded at', result.time);
 
-        // Do we need a stack here?
-
-        if (this.getBlockStackLength() > BLOCK_QUEUE_LIMIT) {
-            let stack = [];
-
-            for (var i = 0; i < BLOCK_QUEUE_LIMIT; i++) {
-                stack.push(this.shiftBlockStack());
-            }
-
-            // TODO - Write to Database
-
-        }
+        // TODO - write to DB
 
     } else {
         console.log("> Request Failed at:", Math.floor(Date.now() / 1000));
-
-
+        throw new Error(result.err);
     }
 
 };
@@ -252,7 +199,7 @@ DataLogic.prototype.heartbeatHandler = function(queryRate) {
 
         }
 
-        console.log('> heartbeat triggered, last txTime: ' + txStatus.time  + ' (writing queue: ' + this.getTxStackLength() + ')');
+        console.log('> heartbeat triggered, last txTime: ' + txStatus.time);
     }
 
 };
