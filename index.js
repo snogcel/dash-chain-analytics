@@ -14,10 +14,8 @@ program
 var start, end;
 
 // Global Variables
-const TX_QUEUE_LIMIT = 1;
-const BLOCK_QUEUE_LIMIT = 1;
-const HEARTBEAT_INTERVAL = 5;
-const HEARTBEAT_REQUEST_DELAY = 10;
+const HEARTBEAT_INTERVAL = 2;
+const HEARTBEAT_REQUEST_DELAY = 5;
 
 const configData = {
     platforms: [{
@@ -58,14 +56,13 @@ function DataLogic() {
 
     // Status Interface
     let status = {};
-
-    // Public Interfaces
-    this.initStatus = function(platforms) {
+    let initStatus = function(platforms) {
         for (let i = 0; i < platforms.length; i++) {
             status[platforms[i].name] = platforms[i].statusFields;
         }
     };
 
+    // Public Interfaces
     this.setStatus = function(name, data) {
         status[name] = data;
         return status[name];
@@ -76,17 +73,19 @@ function DataLogic() {
     };
 
     // TODO - Fetch Config
-    this.initStatus(configData.platforms);
+    initStatus(configData.platforms);
 
     this.locked = false;
 }
 
 DataLogic.prototype.parseTxData = function(data) {
 
+    let validator = false;
+
     // Soft Error Handler
     if (typeof data.err !== 'undefined' && data.err) {
         return this.setStatus('tx', {
-            valid: false,
+            valid: validator,
             res: data.err,
             time: Math.floor(Date.now() / 1000)
         });
@@ -94,9 +93,15 @@ DataLogic.prototype.parseTxData = function(data) {
 
     if (typeof data.res !== 'undefined' && data.res) {
 
+        // Assume Valid Data
+        validator = true;
+
+        // Parsing Logic
+
+
         // Return status
         return this.setStatus('tx', {
-            valid: true,
+            valid: validator,
             res: data.res,
             time: Math.floor(Date.now() / 1000)
         });
@@ -127,11 +132,12 @@ DataLogic.prototype.txEventHandler = function(data) {
 };
 
 DataLogic.prototype.parseBlockData = function(data) {
+    let validator = false;
 
     // Soft Error Handler
     if (typeof data.err !== 'undefined' && data.err) {
         return this.setStatus('block', {
-            valid: false,
+            valid: validator,
             res: data.err,
             time: Math.floor(Date.now() / 1000)
         });
@@ -139,9 +145,17 @@ DataLogic.prototype.parseBlockData = function(data) {
 
     if (typeof data.res !== 'undefined' && data.res) {
 
+        // Assume Valid Data
+        validator = true;
+
+        // Parsing Logic
+        if (data.res === 'Not found') {
+            validator = false;
+        }
+
         // Return status
         return this.setStatus('block', {
-            valid: true,
+            valid: validator,
             res: data.res,
             time: Math.floor(Date.now() / 1000)
         });
@@ -194,8 +208,9 @@ DataLogic.prototype.heartbeatHandler = function(queryRate) {
             // TODO - do stuff
 
             // TODO - query database for most recent data
+            let status = dataLogic.getStatus('block');
+            this.blockQueue.push(parseInt(status.res.height) + 1);
 
-            this.blockQueue.push(700007);
 
         }
 
@@ -224,8 +239,7 @@ if (program.start && program.end) {
 
         console.log('-- test mode --');
 
-        // TODO - test bad request
-        dataLogic.blockQueue.push('700007');
+        dataLogic.blockQueue.push(700007);
 
     } else {
 
