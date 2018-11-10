@@ -43,17 +43,7 @@ function DataLogic() {
     let txStack = [];
 
     // Data Interface Status
-    let blockStatus = {
-        lastSuccess: true,
-        res: null,
-        time: 0
-    };
-
-    let txStatus = {
-        lastSuccess: true,
-        res: null,
-        time: 0
-    };
+    let status = {};
 
     // Public Interfaces
     this.parseBlockData = function(data) {
@@ -62,31 +52,68 @@ function DataLogic() {
         const res = data.res;
 
         if (typeof err !== 'undefined' && err) {
-            blockStatus.lastSuccess = false;
+            let status = this.setStatus('block', {
+                lastSuccess: false,
+                res: err,
+                time: Math.floor(Date.now() / 1000)
+            });
 
             // TODO - Handle Error
             console.log("> error:", err);
 
-            return blockStatus.lastSuccess;
+            return status.lastSuccess;
         }
 
-        blockStatus.lastSuccess = typeof res !== 'undefined' || res;
-        blockStatus.res = res;
-        blockStatus.time = Math.floor(Date.now() / 1000);
+        // Update Status
+        let status = this.setStatus('block', {
+            lastSuccess: typeof res !== 'undefined' || res,
+            res: res,
+            time: Math.floor(Date.now() / 1000)
+        });
 
         // Push to Block Stack
-        if (blockStatus.lastSuccess) blockStack.push(data);
+        if (status.lastSuccess) blockStack.push(data);
 
         // Return Status
-        return blockStatus.lastSuccess;
+        return status.lastSuccess;
     };
 
-    this.getBlockTime = function() {
-        return blockStatus.time;
+    this.initStatus = function(dataObject) {
+
+        // TODO - pull from config and finalize against spec
+        var configData = {
+            platforms: [{
+                name: "block",
+                statusFields: {
+                    lastSuccess: true,
+                    res: null,
+                    time: 0
+                }
+            }, {
+                name: "tx",
+                statusFields: {
+                    lastSuccess: true,
+                    res: null,
+                    time: 0
+                }
+            }]
+        };
+
+        for (let i = 0; i < configData.platforms.length; i++) {
+            status[configData.platforms[i].name] = configData.platforms[i].statusFields;
+        }
+
     };
 
-    this.getBlockStatus = function() {
-        return blockStatus.lastSuccess;
+    this.setStatus = function(name, data) {
+        // TODO - validate data?
+        status[name] = data;
+
+        return status[name];
+    };
+
+    this.getStatus = function(name) {
+        return status[name]
     };
 
     this.parseTxData = function(data) {
@@ -95,28 +122,30 @@ function DataLogic() {
         const res = data.res;
         
         if (typeof err !== 'undefined' && err) {
-            txStatus.lastSuccess = false;
+            let status = this.setStatus('tx', {
+                lastSuccess: false,
+                res: err,
+                time: Math.floor(Date.now() / 1000)
+            });
 
             // TODO - Handle Error
             console.log("> error:", err);
 
-            return txStatus.lastSuccess;
+            return status.lastSuccess;
         }
 
         // Update Status
-        txStatus.lastSuccess = typeof res !== 'undefined' || res;
-        txStatus.res = res;
-        txStatus.time = Math.floor(Date.now() / 1000);
+        let status = this.setStatus('tx', {
+            lastSuccess: typeof res !== 'undefined' || res,
+            res: res,
+            time: Math.floor(Date.now() / 1000)
+        });
 
         // Push to TX Stack
-        if (txStatus.lastSuccess) txStack.push(data);
+        if (status.lastSuccess) txStack.push(data);
 
         // Return Status
-        return txStatus.lastSuccess;
-    };
-
-    this.getTxTime = function() {
-        return txStatus.time;
+        return status.lastSuccess;
     };
 
     this.getTxStackLength = function() {
@@ -136,6 +165,8 @@ function DataLogic() {
     };
 
     this.locked = false;
+
+    this.initStatus(null);
 }
 
 DataLogic.prototype.txEventHandler = function(data) {
@@ -143,7 +174,9 @@ DataLogic.prototype.txEventHandler = function(data) {
     const lastStatus = this.parseTxData(data);
 
     if (lastStatus) {
-        console.log('> Request Succeeded at: ' + this.getTxTime() + ' (writing queue: ' + this.getTxStackLength() + ')');
+        console.log('> Request Succeeded (writing queue: ' + this.getTxStackLength() + ')');
+
+        console.log(this.getStatus('tx'));
 
         if (this.getTxStackLength() > TX_QUEUE_LIMIT) {
             let stack = [];
@@ -154,7 +187,7 @@ DataLogic.prototype.txEventHandler = function(data) {
 
             // TODO - Write to Database
 
-            console.log(stack);
+            // console.log(stack);
 
         }
 
@@ -171,7 +204,9 @@ DataLogic.prototype.blockEventHandler = function(data) {
     const lastStatus = this.parseBlockData(data);
 
     if (lastStatus) {
-        console.log('> Request Succeeded at: ' + this.getBlockTime() + ' (writing queue: ' + this.getBlockStackLength() + ')');
+        console.log('> Request Succeeded (writing queue: ' + this.getBlockStackLength() + ')');
+
+        // Do we need a stack here?
 
         if (this.getBlockStackLength() > BLOCK_QUEUE_LIMIT) {
             let stack = [];
@@ -196,9 +231,14 @@ DataLogic.prototype.heartbeatHandler = function(queryRate) {
 
     const currentTime = Math.floor(Date.now() / 1000);
 
+    // TODO - fetch config
+
+    let txStatus = this.getStatus('tx');
+    let blockStatus = this.getStatus('block');
+
     if (!this.locked) {
 
-        if ((currentTime - this.getTxTime()) > queryRate) {
+        if ((currentTime - txStatus.time) > queryRate) {
 
             // TODO - do stuff
 
@@ -206,7 +246,7 @@ DataLogic.prototype.heartbeatHandler = function(queryRate) {
 
         }
 
-        if ((currentTime - this.getBlockTime()) > queryRate) {
+        if ((currentTime - blockStatus.time) > queryRate) {
 
             // TODO - do stuff
 
@@ -216,7 +256,7 @@ DataLogic.prototype.heartbeatHandler = function(queryRate) {
 
         }
 
-        console.log('> heartbeat triggered, last txTime: ' + this.getTxTime()  + ' (writing queue: ' + this.getTxStackLength() + ')');
+        console.log('> heartbeat triggered, last txTime: ' + txStatus.time  + ' (writing queue: ' + this.getTxStackLength() + ')');
     }
 
 };
@@ -241,7 +281,8 @@ if (program.start && program.end) {
 
         console.log('-- test mode --');
 
-        dataLogic.blockQueue.push(700007);
+        // TODO - test bad request
+        dataLogic.blockQueue.push('700007');
 
     } else {
 
