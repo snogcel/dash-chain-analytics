@@ -48,34 +48,35 @@ function DataLogic() {
     // Public Interfaces
     this.parseBlockData = function(data) {
 
-        const err = data.err;
-        const res = data.res;
-
-        if (typeof err !== 'undefined' && err) {
-            let status = this.setStatus('block', {
+        if (typeof data.err !== 'undefined' && data.err) {
+            return this.setStatus('block', {
                 lastSuccess: false,
-                res: err,
+                res: data.err,
+                time: Math.floor(Date.now() / 1000)
+            });
+        }
+
+        if (typeof data.res !== 'undefined' && data.res) {
+            // Push to Block Stack
+            blockStack.push(data.res);
+
+            console.log(blockStack);
+
+            // Return status
+            return this.setStatus('block', {
+                lastSuccess: true,
+                res: data.res,
                 time: Math.floor(Date.now() / 1000)
             });
 
-            // TODO - Handle Error
-            console.log("> error:", err);
+        } else {
 
-            return status.lastSuccess;
+            // TODO - Error Handling
+
+            // Invalid Data
+            throw new Error(data);
+
         }
-
-        // Update Status
-        let status = this.setStatus('block', {
-            lastSuccess: typeof res !== 'undefined' || res,
-            res: res,
-            time: Math.floor(Date.now() / 1000)
-        });
-
-        // Push to Block Stack
-        if (status.lastSuccess) blockStack.push(data);
-
-        // Return Status
-        return status.lastSuccess;
     };
 
     this.initStatus = function(dataObject) {
@@ -117,35 +118,34 @@ function DataLogic() {
     };
 
     this.parseTxData = function(data) {
-
-        const err = data.err;
-        const res = data.res;
         
-        if (typeof err !== 'undefined' && err) {
-            let status = this.setStatus('tx', {
+        if (typeof data.err !== 'undefined' && data.err) {
+            return this.setStatus('tx', {
                 lastSuccess: false,
-                res: err,
+                res: data.err,
+                time: Math.floor(Date.now() / 1000)
+            });
+        }
+
+        if (typeof data.res !== 'undefined' && data.res) {
+            // Push to TX Stack
+            txStack.push(data.res);
+
+            // Return status
+            return this.setStatus('tx', {
+                lastSuccess: true,
+                res: data.res,
                 time: Math.floor(Date.now() / 1000)
             });
 
-            // TODO - Handle Error
-            console.log("> error:", err);
+        } else {
 
-            return status.lastSuccess;
+            // TODO - Error Handling
+
+            // Invalid Data
+            throw new Error(data);
+
         }
-
-        // Update Status
-        let status = this.setStatus('tx', {
-            lastSuccess: typeof res !== 'undefined' || res,
-            res: res,
-            time: Math.floor(Date.now() / 1000)
-        });
-
-        // Push to TX Stack
-        if (status.lastSuccess) txStack.push(data);
-
-        // Return Status
-        return status.lastSuccess;
     };
 
     this.getTxStackLength = function() {
@@ -171,12 +171,10 @@ function DataLogic() {
 
 DataLogic.prototype.txEventHandler = function(data) {
 
-    const lastStatus = this.parseTxData(data);
+    const status = this.parseTxData(data);
 
-    if (lastStatus) {
+    if (status.lastSuccess) {
         console.log('> Request Succeeded (writing queue: ' + this.getTxStackLength() + ')');
-
-        console.log(this.getStatus('tx'));
 
         if (this.getTxStackLength() > TX_QUEUE_LIMIT) {
             let stack = [];
@@ -201,9 +199,9 @@ DataLogic.prototype.txEventHandler = function(data) {
 
 DataLogic.prototype.blockEventHandler = function(data) {
 
-    const lastStatus = this.parseBlockData(data);
+    const status = this.parseBlockData(data);
 
-    if (lastStatus) {
+    if (status.lastSuccess) {
         console.log('> Request Succeeded (writing queue: ' + this.getBlockStackLength() + ')');
 
         // Do we need a stack here?
